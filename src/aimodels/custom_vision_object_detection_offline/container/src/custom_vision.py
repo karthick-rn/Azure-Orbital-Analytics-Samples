@@ -154,7 +154,7 @@ def get_custom_vision_preds(input_path, output_path, config):
 
 
 # Run
-if __name__ == '__main__':
+if __name__ == "__main__":
     logger.setLevel("DEBUG")
     logger.addHandler(logging.StreamHandler())
     logger.handlers[0].setFormatter(logging.Formatter("[%(asctime)s] %(msg)s"))

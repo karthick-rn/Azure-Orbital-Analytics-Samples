@@ -72,7 +72,7 @@ def predict_url_handler(project=None, publishedName=None):
         return 'Error processing image'
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Load and intialize the model
     initialize()
 
