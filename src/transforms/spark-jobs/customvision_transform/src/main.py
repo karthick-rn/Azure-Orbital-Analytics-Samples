@@ -1,51 +1,63 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
-import sys, os, argparse, math
+import argparse
+import glob
 import json
 import logging
 import logging.config
+import math
+import os
+import shutil
+import sys
+from pathlib import Path
+
 import pyproj
-import glob
 import rasterio as rio
 import rasterio.mask
 import shapely as shp
 import shapely.geometry as geo
-from shapely.ops import transform
+from notebookutils import mssparkutils
 from osgeo import gdal
 from pandas import array
-from notebookutils import mssparkutils
-from pyspark.sql import SparkSession
-
-from pathlib import Path
 from PIL import Image, UnidentifiedImageError
-import shutil
-from notebookutils import mssparkutils
+from pyspark.sql import SparkSession
+from shapely.ops import transform
 
 # collect args
-parser = argparse.ArgumentParser(description='Arguments required to run mosaic function')
-parser.add_argument('--storage_account_name', type=str, required=True, help='Name of the storage account name where the input data resides')
-parser.add_argument('--storage_container', type=str, required=True, help='Container under which the input data resides')
-parser.add_argument('--key_vault_name', type=str, required=True, help='Name of the Key Vault that stores the secrets')
-parser.add_argument('--storage_account_key_secret_name', type=str, required=True, help='Name of the secret in the Key Vault that stores storage account key')
-parser.add_argument('--linked_service_name', type=str, required=True, help='Name of the Linekd Service for the Key Vault')
+parser = argparse.ArgumentParser(
+    description='Arguments required to run mosaic function')
+parser.add_argument('--storage_account_name', type=str, required=True,
+                    help='Name of the storage account name where the input data resides')
+parser.add_argument('--storage_container', type=str, required=True,
+                    help='Container under which the input data resides')
+parser.add_argument('--key_vault_name', type=str, required=True,
+                    help='Name of the Key Vault that stores the secrets')
+parser.add_argument('--storage_account_key_secret_name', type=str, required=True,
+                    help='Name of the secret in the Key Vault that stores storage account key')
+parser.add_argument('--linked_service_name', type=str, required=True,
+                    help='Name of the Linekd Service for the Key Vault')
 
-parser.add_argument('--aoi', nargs=4, type=float, default=None, help='Coordinates for Area of Interest')
+parser.add_argument('--aoi', nargs=4, type=float, default=None,
+                    help='Coordinates for Area of Interest')
 
 # parse Args
 args = parser.parse_args()
 
+
 def area_sq_km(area: shp.geometry.base.BaseGeometry, src_crs) -> float:
-    tfmr = pyproj.Transformer.from_crs(src_crs, {'proj':'cea'}, always_xy=True)
+    tfmr = pyproj.Transformer.from_crs(
+        src_crs, {'proj': 'cea'}, always_xy=True)
     return transform(tfmr.transform, area).area / 1e6
 
-def tile_img(input_path: str, 
-    output_path: str, 
-    file_name: str,
-    tile_size):
+
+def tile_img(input_path: str,
+             output_path: str,
+             file_name: str,
+             tile_size):
     '''
     Tiles/chips images into a user defined size using the tile_size parameter
-    
+
     Inputs:
         input_path - Name of the storage account name where the input data resides
         output_path - Key to the storage account where the input data resides
@@ -54,13 +66,13 @@ def tile_img(input_path: str,
 
     Output:
         All image chips saved into the user specified directory
-    
+
     '''
     gdal.UseExceptions()
     logger.info("Tiling: getting tile size")
     tile_size = int(tile_size)
     logger.info(f"Tiling: tile size retrieved - {tile_size}")
-    
+
     try:
         logger.info("Tiling: getting image")
         Image.MAX_IMAGE_PIXELS = None
@@ -68,42 +80,50 @@ def tile_img(input_path: str,
         logger.info("Tiling: image Retrieved")
 
         logger.info("Tiling: determining Tile width")
-        n_tile_width = list(range(0,math.floor(img.size[0]/tile_size)))
+        n_tile_width = list(range(0, math.floor(img.size[0]/tile_size)))
         logger.info(f"Tiling: tile width {n_tile_width}")
         logger.info("Tiling: determining Tile height")
-        n_tile_height = list(range(0,math.floor(img.size[1]/tile_size)))
+        n_tile_height = list(range(0, math.floor(img.size[1]/tile_size)))
         logger.info(f"Tiling: tile height {n_tile_height}")
-        tile_combinations = [(a,b) for a in n_tile_width for b in n_tile_height]
-        
+        tile_combinations = [(a, b)
+                             for a in n_tile_width for b in n_tile_height]
+
         logger.info("Tiling: processing tiles")
         for tile_touple in tile_combinations:
             logger.info("Tiling: getting starting coordinates")
             x_start_point = tile_touple[0]*tile_size
             y_start_point = tile_touple[1]*tile_size
-            logger.info(f"Tiling: got Starting Coordinates - {x_start_point},{y_start_point}")
-            
+            logger.info(
+                f"Tiling: got Starting Coordinates - {x_start_point},{y_start_point}")
+
             logger.info("Tiling: cropping Tile")
-            crop_box = (x_start_point, y_start_point, x_start_point+tile_size, y_start_point+tile_size)
+            crop_box = (x_start_point, y_start_point,
+                        x_start_point+tile_size, y_start_point+tile_size)
             tile_crop = img.crop(crop_box)
             logger.info("Tiling: tile Cropped")
-            
+
             logger.info("Tiling: getting tile name")
             img_name = os.path.basename(file_name)
-            tile_name = img_name.rsplit('.',1)
-            tile_name = '.'.join([tile_name[0],'tile',str(tile_touple[0]),str(tile_touple[1]),tile_name[1]])
+            tile_name = img_name.rsplit('.', 1)
+            tile_name = '.'.join([tile_name[0], 'tile', str(
+                tile_touple[0]), str(tile_touple[1]), tile_name[1]])
             logger.info(f"Tiling: retreived Tile name - {tile_name}")
-            
+
             logger.info(f"Tiling: saving Tile - {tile_name}")
             tile_crop.save(str(Path(output_path) / tile_name))
             logger.info(f"Tiling: saved Tile - {tile_name}")
     except UnidentifiedImageError:
-        logger.info("Tiling: file is not an image, copying to destination directory")
+        logger.info(
+            "Tiling: file is not an image, copying to destination directory")
         sourcePath = str(Path(input_path) / img_name)
         destinationPath = str(Path(output_path) / img_name)
 
-        logger.info(f"Tiling: copying file from {sourcePath} to {destinationPath}")
-        shutil.copyfile(sourcePath,destinationPath)
-        logger.info(f"Tiling: copied file from {sourcePath} to {destinationPath}")
+        logger.info(
+            f"Tiling: copying file from {sourcePath} to {destinationPath}")
+        shutil.copyfile(sourcePath, destinationPath)
+        logger.info(
+            f"Tiling: copied file from {sourcePath} to {destinationPath}")
+
 
 def convert_directory(
     input_path,
@@ -127,7 +147,8 @@ def convert_directory(
         in_name = in_file.name
         logger.info("Convert: ingesting file %s", in_file.path)
         # ! this is a landmine; will error for files w/o extension but with '.', and for formats with spaces
-        out_name = os.path.splitext(in_name)[0] + "." + translate_options_dict["format"]
+        out_name = os.path.splitext(
+            in_name)[0] + "." + translate_options_dict["format"]
         out_path = os.path.join(output_path, out_name)
         try:
             # call gdal to convert the file format
@@ -146,9 +167,10 @@ def convert_directory(
             logger.debug(f"Convert: deleting metadata file f{xml_file}")
             os.remove(xml_file)
 
-def crop(image_paths: array, 
-    output_path: str,
-    bbox: [float]):
+
+def crop(image_paths: array,
+         output_path: str,
+         bbox: [float]):
     '''
     Crops the GeoTiff to the Area of Interest (AOI)
 
@@ -193,7 +215,8 @@ def crop(image_paths: array,
             # convert the aoi boundary to the images native CRS
             # shapely is (x,y) coord order, but its (lat, long) for WGS84
             #  so force consistency with always_xy
-            tfmr = pyproj.Transformer.from_crs("epsg:4326", crs_src, always_xy=True)
+            tfmr = pyproj.Transformer.from_crs(
+                "epsg:4326", crs_src, always_xy=True)
             aoi_src = transform(tfmr.transform, aoi)
 
             # possible changes - better decision making on nodata choices here
@@ -224,9 +247,10 @@ def crop(image_paths: array,
             dst_area = area_sq_km(shp.geometry.box(*img_dst.bounds), crs_src)
             dst_shape = img_dst.shape
 
-def mosaic_tifs(input_path: str, 
-    output_path: str, 
-    files: any):
+
+def mosaic_tifs(input_path: str,
+                output_path: str,
+                files: any):
     '''
         Stitches two or more GeoTiffs into one single large GeoTiff
 
@@ -237,13 +261,15 @@ def mosaic_tifs(input_path: str,
     gdal.UseExceptions()
 
     # two or more files to be mosaic'ed are passed as comma separated values
-    files_to_mosaic = [ f"{input_path}/{file}" for file in files ]
+    files_to_mosaic = [f"{input_path}/{file}" for file in files]
 
     # gdal library's wrap method is called to perform the mosaic'ing
-    g = gdal.Warp(f'{output_path}/output.tif', files_to_mosaic, format="GTiff", options=["COMPRESS=LZW", "TILED=YES"])
+    g = gdal.Warp(f'{output_path}/output.tif', files_to_mosaic,
+                  format="GTiff", options=["COMPRESS=LZW", "TILED=YES"])
 
     # close file and flush to disk
     g = None
+
 
 if __name__ == "__main__":
 
@@ -256,14 +282,15 @@ if __name__ == "__main__":
 
     sc = SparkSession.builder.getOrCreate()
     token_library = sc._jvm.com.microsoft.azure.synapse.tokenlibrary.TokenLibrary
-    storage_account_key = token_library.getSecret(args.key_vault_name, args.storage_account_key_secret_name, args.linked_service_name)
-    
+    storage_account_key = token_library.getSecret(
+        args.key_vault_name, args.storage_account_key_secret_name, args.linked_service_name)
+
     # mount storage account container
-    mssparkutils.fs.unmount(f'/{args.storage_container}') 
-    mssparkutils.fs.mount( 
-        f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net', 
-        f'/{args.storage_container}', 
-        {"accountKey": storage_account_key} 
+    mssparkutils.fs.unmount(f'/{args.storage_container}')
+    mssparkutils.fs.mount(
+        f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net',
+        f'/{args.storage_container}',
+        {"accountKey": storage_account_key}
     )
 
     jobId = mssparkutils.env.getJobId()
@@ -273,8 +300,9 @@ if __name__ == "__main__":
     crop_config_path = f'/synfs/{jobId}/{args.storage_container}/config/config-aoi.json'
 
     # list the files in the source folder path under the storage account's container
-    images_to_mosaic = mssparkutils.fs.ls(f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net/{mosaic_src_folder}')
-    
+    images_to_mosaic = mssparkutils.fs.ls(
+        f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net/{mosaic_src_folder}')
+
     input_files = []
     for file in images_to_mosaic:
         if not file.isDir and file.name.endswith('.TIF'):
@@ -289,11 +317,12 @@ if __name__ == "__main__":
     input_path = f'/synfs/{jobId}/{args.storage_container}/{mosaic_src_folder}'
     output_path = f'/synfs/{jobId}/{args.storage_container}/{crop_src_folder}'
 
-    # only if there is more than one tif file, 
+    # only if there is more than one tif file,
     # then call mosaic
     if len(input_files) > 1:
 
-        mssparkutils.fs.mkdirs(f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net/{crop_src_folder}')
+        mssparkutils.fs.mkdirs(
+            f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net/{crop_src_folder}')
 
         logger.info("Main: starting Mosaicing Process")
 
@@ -309,9 +338,11 @@ if __name__ == "__main__":
     input_path = f'/synfs/{jobId}/{args.storage_container}/{crop_src_folder}'
     output_path = f'/synfs/{jobId}/{args.storage_container}/{convert_src_folder}'
 
-    images_to_crop = mssparkutils.fs.ls(f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net/{crop_src_folder}')
+    images_to_crop = mssparkutils.fs.ls(
+        f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net/{crop_src_folder}')
 
-    mssparkutils.fs.mkdirs(f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net/{convert_src_folder}')
+    mssparkutils.fs.mkdirs(
+        f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net/{convert_src_folder}')
 
     input_files = []
     for file in images_to_crop:
@@ -319,7 +350,7 @@ if __name__ == "__main__":
         if not file.isDir:
             input_files.append(
                 file.path.replace(
-                    f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net/{crop_src_folder}', 
+                    f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net/{crop_src_folder}',
                     f'/synfs/{jobId}/{args.storage_container}/{crop_src_folder}'))
 
     crop(input_files, output_path, args.aoi)
@@ -334,7 +365,8 @@ if __name__ == "__main__":
     output_path = f'/synfs/{jobId}/{args.storage_container}/{tiles_src_folder}'
     convert_config_path = f'/synfs/{jobId}/{args.storage_container}/config/config-img-convert-png.json'
 
-    mssparkutils.fs.mkdirs(f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net/{tiles_src_folder}')
+    mssparkutils.fs.mkdirs(
+        f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net/{tiles_src_folder}')
 
     convert_directory(input_path, output_path)
 
@@ -347,7 +379,8 @@ if __name__ == "__main__":
     input_path = f'/synfs/{jobId}/{args.storage_container}/{tiles_src_folder}'
     output_path = f'/synfs/{jobId}/{args.storage_container}/{tiles_dst_folder}'
 
-    mssparkutils.fs.mkdirs(f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net/{tiles_dst_folder}')
+    mssparkutils.fs.mkdirs(
+        f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net/{tiles_dst_folder}')
 
     tile_img(input_path, output_path, "output.png", "512")
 

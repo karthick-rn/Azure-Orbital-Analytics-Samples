@@ -1,25 +1,34 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
-import os, argparse, sys
-import json
+import argparse
 import glob
-from osgeo import gdal
+import json
 import logging
-from notebookutils import mssparkutils
-
+import os
+import sys
 from pathlib import Path
 
+from notebookutils import mssparkutils
+from osgeo import gdal
+
 # collect args
-parser = argparse.ArgumentParser(description='Arguments required to run convert to png function')
-parser.add_argument('--storage_account_name', type=str, required=True, help='Name of the storage account name where the input data resides')
-parser.add_argument('--storage_account_key', required=True, help='Key to the storage account where the input data resides')
-parser.add_argument('--storage_container', type=str, required=True, help='Container under which the input data resides')
-parser.add_argument('--src_folder_name', default=None, required=True, help='Folder containing the source file for cropping')
-parser.add_argument('--config_file_name', required=True, help='Config file name')
+parser = argparse.ArgumentParser(
+    description='Arguments required to run convert to png function')
+parser.add_argument('--storage_account_name', type=str, required=True,
+                    help='Name of the storage account name where the input data resides')
+parser.add_argument('--storage_account_key', required=True,
+                    help='Key to the storage account where the input data resides')
+parser.add_argument('--storage_container', type=str, required=True,
+                    help='Container under which the input data resides')
+parser.add_argument('--src_folder_name', default=None, required=True,
+                    help='Folder containing the source file for cropping')
+parser.add_argument('--config_file_name', required=True,
+                    help='Config file name')
 
 # parse Args
 args = parser.parse_args()
+
 
 def convert_directory(
     input_path,
@@ -57,7 +66,8 @@ def convert_directory(
         in_name = in_file.name
         logger.info("ingesting file %s", in_file.path)
         # ! this is a landmine; will error for files w/o extension but with '.', and for formats with spaces
-        out_name = os.path.splitext(in_name)[0] + "." + translate_options_dict["format"]
+        out_name = os.path.splitext(
+            in_name)[0] + "." + translate_options_dict["format"]
         out_path = os.path.join(output_path, out_name)
         try:
             # call gdal to convert the file format
@@ -86,12 +96,12 @@ if __name__ == "__main__":
     logger = logging.getLogger("image_convert")
 
     # unmount any previously mounted storage account container
-    mssparkutils.fs.unmount(f'/{args.storage_container}') 
+    mssparkutils.fs.unmount(f'/{args.storage_container}')
 
-    mssparkutils.fs.mount( 
-        f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net', 
-        f'/{args.storage_container}', 
-        {"accountKey": args.storage_account_key} 
+    mssparkutils.fs.mount(
+        f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net',
+        f'/{args.storage_container}',
+        {"accountKey": args.storage_account_key}
     )
 
     jobId = mssparkutils.env.getJobId()
@@ -111,11 +121,11 @@ if __name__ == "__main__":
 
         # tif file extensions are removed so that we can use the same file name for png
         file_name = os.path.basename(in_file.path).replace('.tif', '')
-        
+
         copy_src_file_name = f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net/{file_name}'
         copy_dst_file_name = f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net/convert/{file_name}'
 
-        # move source png file to destination path 
+        # move source png file to destination path
         mssparkutils.fs.mv(
             f'{copy_src_file_name}.png',
             f'{copy_dst_file_name}.png',

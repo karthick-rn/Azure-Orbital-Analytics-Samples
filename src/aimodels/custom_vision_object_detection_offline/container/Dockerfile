@@ -8,7 +8,7 @@ RUN mkdir -p $APP_INPUT_DIR $APP_OUTPUT_DIR
 COPY src/requirements.txt ./requirements.txt
 
 RUN pip install -U pip
-RUN cat requirements.txt | xargs -n 1 -L 1 pip install --no-cache-dir
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src/ ./
 

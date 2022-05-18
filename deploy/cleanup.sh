@@ -25,31 +25,31 @@ PIPELINE_RESOURCE_GROUP="${envCode}-pipeline-rg"
 
 if [[ ${NO_DELETE_DATA_RESOURCE_GROUP} != "true" ]] && [[ ${NO_DELETE_DATA_RESOURCE_GROUP} == "false" ]]; then
     set -x
-    az group delete --name ${DATA_RESOURCE_GROUP} --no-wait --yes
+    az group delete --name "${DATA_RESOURCE_GROUP}" --no-wait --yes
     set +x
 fi
 
 if [ "${NO_DELETE_MONITORING_RESOURCE_GROUP}" != "true" ] && [ "${NO_DELETE_MONITORING_RESOURCE_GROUP}" == "false" ]; then
     set -x
-    az group delete --name ${MONITORING_RESOURCE_GROUP} --no-wait --yes
+    az group delete --name "${MONITORING_RESOURCE_GROUP}" --no-wait --yes
     set +x
 fi
 
 if [ "${NO_DELETE_NETWORKING_RESOURCE_GROUP}" != "true" ] && [ "${NO_DELETE_NETWORKING_RESOURCE_GROUP}" == "false" ]; then
     set -x
-    az group delete --name ${NETWORKING_RESOURCE_GROUP} --no-wait --yes
+    az group delete --name "${NETWORKING_RESOURCE_GROUP}" --no-wait --yes
     set +x
 fi
 
 if [ "${NO_DELETE_ORCHESTRATION_RESOURCE_GROUP}" != "true" ] && [ "${NO_DELETE_ORCHESTRATION_RESOURCE_GROUP}" == "false" ]; then
     set -x
-    az group delete --name ${ORCHESTRATION_RESOURCE_GROUP} --no-wait --yes
+    az group delete --name "${ORCHESTRATION_RESOURCE_GROUP}" --no-wait --yes
     set +x
 fi
 
 if [ "${NO_DELETE_PIPELINE_RESOURCE_GROUP}" != "true" ] && [ "${NO_DELETE_PIPELINE_RESOURCE_GROUP}" == "false" ]; then
     set -x
-    az group delete --name ${PIPELINE_RESOURCE_GROUP} --no-wait --yes
+    az group delete --name "${PIPELINE_RESOURCE_GROUP}" --no-wait --yes
     set +x
 fi
 

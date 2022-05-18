@@ -1,34 +1,43 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
-import os, argparse, sys
+import argparse
+import os
+import sys
+from pathlib import Path
+
 import shapely as shp
 import shapely.geometry as geo
-from osgeo import gdal
+import utils
 from notebookutils import mssparkutils
-
-from pathlib import Path
+from osgeo import gdal
 
 sys.path.append(os.getcwd())
 
-import utils
 
 # collect args
-parser = argparse.ArgumentParser(description='Arguments required to run crop function')
-parser.add_argument('--storage_account_name', type=str, required=True, help='Name of the storage account name where the input data resides')
-parser.add_argument('--storage_account_key', required=True, help='Key to the storage account where the input data resides')
-parser.add_argument('--storage_container', type=str, required=True, help='Container under which the input data resides')
-parser.add_argument('--src_folder_name', default=None, required=True, help='Folder containing the source file for cropping')
-parser.add_argument('--config_file_name', required=True, help='Config file name')
+parser = argparse.ArgumentParser(
+    description='Arguments required to run crop function')
+parser.add_argument('--storage_account_name', type=str, required=True,
+                    help='Name of the storage account name where the input data resides')
+parser.add_argument('--storage_account_key', required=True,
+                    help='Key to the storage account where the input data resides')
+parser.add_argument('--storage_container', type=str, required=True,
+                    help='Container under which the input data resides')
+parser.add_argument('--src_folder_name', default=None, required=True,
+                    help='Folder containing the source file for cropping')
+parser.add_argument('--config_file_name', required=True,
+                    help='Config file name')
 
 # parse Args
 args = parser.parse_args()
 
-def crop(storage_account_name: str, 
-    storage_account_key: str, 
-    storage_container: str, 
-    src_folder_name: str,
-    config_file_name: str):
+
+def crop(storage_account_name: str,
+         storage_account_key: str,
+         storage_container: str,
+         src_folder_name: str,
+         config_file_name: str):
     '''
     Crops the GeoTiff to the Area of Interest (AOI)
 
@@ -47,12 +56,12 @@ def crop(storage_account_name: str,
 
     gdal.UseExceptions()
 
-    mssparkutils.fs.unmount(f'/{storage_container}') 
+    mssparkutils.fs.unmount(f'/{storage_container}')
 
-    mssparkutils.fs.mount( 
-        f'abfss://{storage_container}@{storage_account_name}.dfs.core.windows.net', 
-        f'/{storage_container}', 
-        {"accountKey": storage_account_key} 
+    mssparkutils.fs.mount(
+        f'abfss://{storage_container}@{storage_account_name}.dfs.core.windows.net',
+        f'/{storage_container}',
+        {"accountKey": storage_account_key}
     )
 
     jobId = mssparkutils.env.getJobId()
@@ -97,13 +106,15 @@ def crop(storage_account_name: str,
     input_files = []
 
     # list all the files in the folder that will be part of the crop
-    files = mssparkutils.fs.ls(f'abfss://{storage_container}@{storage_account_name}.dfs.core.windows.net/{src_folder_name}')
+    files = mssparkutils.fs.ls(
+        f'abfss://{storage_container}@{storage_account_name}.dfs.core.windows.net/{src_folder_name}')
     for file in files:
         if not file.isDir:
             input_files.append(file)
 
     # crop the raster file
-    utils.crop_images(input_files, f'abfss://{storage_container}@{storage_account_name}.dfs.core.windows.net/{src_folder_name}', input_path, output_path, aoi)
+    utils.crop_images(
+        input_files, f'abfss://{storage_container}@{storage_account_name}.dfs.core.windows.net/{src_folder_name}', input_path, output_path, aoi)
 
     for file in input_files:
         # this is the newly created cropped file path in local host
@@ -111,7 +122,8 @@ def crop(storage_account_name: str,
 
         # this is the destination path (storage account) where the newly
         # created cropped file will be moved to
-        perm_src_path = file.path.replace(f'/{src_folder_name}/', '/crop/').replace(os.path.basename(file.path), 'output.tif')
+        perm_src_path = file.path.replace(
+            f'/{src_folder_name}/', '/crop/').replace(os.path.basename(file.path), 'output.tif')
 
         mssparkutils.fs.mv(
             temp_src_path,
@@ -119,14 +131,15 @@ def crop(storage_account_name: str,
             True
         )
 
+
 if __name__ == "__main__":
 
     print("Starting Tiling Process")
 
-    crop(args.storage_account_name, 
-        args.storage_account_key, 
-        args.storage_container, 
-        args.src_folder_name,
-        args.config_file_name)
+    crop(args.storage_account_name,
+         args.storage_account_key,
+         args.storage_container,
+         args.src_folder_name,
+         args.config_file_name)
 
     print("Tiling Process Completed")

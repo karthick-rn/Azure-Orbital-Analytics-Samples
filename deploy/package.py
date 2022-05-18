@@ -1,45 +1,57 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+import argparse
 import os
 import re
-import argparse
 import shutil
 
-
 # Collect args
-parser = argparse.ArgumentParser(description='Arguments required to run packaging function')
-parser.add_argument('--raw_storage_account_name', type=str, required=True, help='Name of the Raw data hosting Storage Account')
-parser.add_argument('--synapse_storage_account_name', type=str, required=True, help='Name of the Raw data hosting Storage Account')
-parser.add_argument('--synapse_pool_name', type=str, required=True, help='Name of the Synapse pool in the Synapse workspace to use as default')
-parser.add_argument('--batch_storage_account_name', type=str, required=True, help='Name of the Batch Storage Account')
-parser.add_argument('--batch_account', type=str, required=True, help="Batch Account name")
-parser.add_argument('--linked_key_vault', type=str, required=True, help="Key Vault to be added as Linked Service")
-parser.add_argument('--location', type=str, required=True, help="Batch Account Location")
-parser.add_argument('--pipeline_name', type=str, required=True, help="Name of the pipeline to package")
+parser = argparse.ArgumentParser(
+    description='Arguments required to run packaging function')
+parser.add_argument('--raw_storage_account_name', type=str,
+                    required=True, help='Name of the Raw data hosting Storage Account')
+parser.add_argument('--synapse_storage_account_name', type=str,
+                    required=True, help='Name of the Raw data hosting Storage Account')
+parser.add_argument('--synapse_pool_name', type=str, required=True,
+                    help='Name of the Synapse pool in the Synapse workspace to use as default')
+parser.add_argument('--batch_storage_account_name', type=str,
+                    required=True, help='Name of the Batch Storage Account')
+parser.add_argument('--batch_account', type=str,
+                    required=True, help="Batch Account name")
+parser.add_argument('--linked_key_vault', type=str, required=True,
+                    help="Key Vault to be added as Linked Service")
+parser.add_argument('--location', type=str, required=True,
+                    help="Batch Account Location")
+parser.add_argument('--pipeline_name', type=str, required=True,
+                    help="Name of the pipeline to package")
 
-#Parse Args
+# Parse Args
 args = parser.parse_args()
+
 
 def replace(tokens_map: dict, body: str):
 
     # use regex to identify tokens in the files. Token are in the format __token_name__
     # same token can occur multiple times in the same file
     tokenizer = re.compile("([\w\'\-]+|\s+|.?)")
-    
+
     # replace tokens with actual values
-    swap = lambda x: '{0}'.format(tokens_map.get(x)) if x in tokens_map else x
-    
+    def swap(x): return '{0}'.format(
+        tokens_map.get(x)) if x in tokens_map else x
+
     # find all and replace
     result = ''.join(swap(st) for st in tokenizer.findall(body))
-    
+
     return result
+
 
 def package(pipeline_name: str, tokens_map: dict):
 
     script_dirname = os.path.dirname(__file__)
-    src_folder_path = os.path.join(script_dirname, '..', 'src', 'workflow', pipeline_name)
-    package_folder_path= os.path.join(os.getcwd(), 'pipeline_name')
+    src_folder_path = os.path.join(
+        script_dirname, '..', 'src', 'workflow', pipeline_name)
+    package_folder_path = os.path.join(os.getcwd(), 'pipeline_name')
 
     # mode
     mode = 0o766
@@ -48,7 +60,7 @@ def package(pipeline_name: str, tokens_map: dict):
     if os.path.exists(package_folder_path):
         shutil.rmtree(package_folder_path)
 
-    # copy the folder structure from src/workflow folder before replacing the 
+    # copy the folder structure from src/workflow folder before replacing the
     # tokens with values
     shutil.copytree(src_folder_path, package_folder_path)
 
@@ -61,10 +73,10 @@ def package(pipeline_name: str, tokens_map: dict):
             # check whether file is in json format or not
             if file.endswith(".json"):
 
-                file_path = os.path.join(package_folder_path, folder ,file)
-    
+                file_path = os.path.join(package_folder_path, folder, file)
+
                 with open(file_path, 'r') as f:
-                    
+
                     # replaced token string in memory
                     token_replaced_file_content = replace(tokens_map, f.read())
 
@@ -81,7 +93,8 @@ def package(pipeline_name: str, tokens_map: dict):
     # finally clean up the package folder
     if os.path.exists(package_folder_path):
         shutil.rmtree(package_folder_path)
-    
+
+
 if __name__ == "__main__":
 
     # list of tokens and their values to be replaced

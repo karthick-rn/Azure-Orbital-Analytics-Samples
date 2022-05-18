@@ -5,9 +5,10 @@ import json
 import logging
 import logging.config
 import os
-from jsonschema import validate
 from pathlib import Path
 from typing import Union
+
+from jsonschema import validate
 
 logger = logging.getLogger(__name__)
 
@@ -20,24 +21,25 @@ schema_str = '{'\
     '"title": "config",' \
     '"type": "object",' \
     '"properties": {' \
-        '"probability_cutoff": {' \
-            '"type": "number"' \
-        '},' \
-        '"height": {' \
-            '"type": "number"' \
-        '},' \
-        '"width": {' \
-            '"type": "number"' \
-        '},' \
-        '"geometry": {' \
-            '"$ref": "#/$defs/geometry"' \
-        '}' \
+    '"probability_cutoff": {' \
+    '"type": "number"' \
+    '},' \
+    '"height": {' \
+    '"type": "number"' \
+    '},' \
+    '"width": {' \
+    '"type": "number"' \
+    '},' \
+    '"geometry": {' \
+    '"$ref": "#/$defs/geometry"' \
+    '}' \
     '},' \
     '"required": [' \
-        '"width",' \
-        '"height"' \
+    '"width",' \
+    '"height"' \
     ']' \
-'}'
+    '}'
+
 
 def parse_config(config_path: Path, default_config: dict):
     config = default_config

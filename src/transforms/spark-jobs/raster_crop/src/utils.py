@@ -4,15 +4,16 @@
 import json
 import logging
 import logging.config
+from pathlib import Path
+
 import pyproj
 import rasterio as rio
 import rasterio.mask
 import shapely as shp
 import shapely.geometry
 from notebookutils import mssparkutils
-
-from pathlib import Path
 from shapely.ops import transform
+
 
 def parse_config(config_path: str):
     LOGGER.info(f"reading config file {config_path}")
@@ -28,9 +29,12 @@ def parse_config(config_path: str):
 
     return config
 
+
 def area_sq_km(area: shp.geometry.base.BaseGeometry, src_crs) -> float:
-    tfmr = pyproj.Transformer.from_crs(src_crs, {'proj':'cea'}, always_xy=True)
+    tfmr = pyproj.Transformer.from_crs(
+        src_crs, {'proj': 'cea'}, always_xy=True)
     return transform(tfmr.transform, area).area / 1e6
+
 
 def crop_images(
     images: any,
@@ -58,7 +62,8 @@ def crop_images(
             # convert the aoi boundary to the images native CRS
             # shapely is (x,y) coord order, but its (lat, long) for WGS84
             #  so force consistency with always_xy
-            tfmr = pyproj.Transformer.from_crs("epsg:4326", crs_src, always_xy=True)
+            tfmr = pyproj.Transformer.from_crs(
+                "epsg:4326", crs_src, always_xy=True)
             aoi_src = transform(tfmr.transform, aoi)
 
             # possible changes - better decision making on nodata choices here
@@ -90,9 +95,10 @@ def crop_images(
             dst_area = area_sq_km(shp.geometry.box(*img_dst.bounds), crs_src)
             dst_shape = img_dst.shape
 
-
-        LOGGER.debug(f"source dimensions {src_shape} and area (sq km) {src_area}")
-        LOGGER.debug(f"destination dimensions {dst_shape} and area (sq km) {dst_area}")
+        LOGGER.debug(
+            f"source dimensions {src_shape} and area (sq km) {src_area}")
+        LOGGER.debug(
+            f"destination dimensions {dst_shape} and area (sq km) {dst_area}")
 
         LOGGER.info(f"saved cropped image to {dst_path}")
 
@@ -121,7 +127,7 @@ def init_logger(name: str = __name__, level: int = logging.DEBUG) -> logging.Log
             },
         },
         "loggers": {
-            name: {"propagate": False, "handlers": [f"{name}_hdl"], "level": level,},
+            name: {"propagate": False, "handlers": [f"{name}_hdl"], "level": level, },
         },
     }
     logging.config.dictConfig(config)

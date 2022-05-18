@@ -1,27 +1,33 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
-import argparse, sys
-from osgeo import gdal
+import argparse
 import logging
+import sys
 
+from notebookutils import mssparkutils
+from osgeo import gdal
 from pandas import array
-from notebookutils import mssparkutils 
-
 
 # collect args
-parser = argparse.ArgumentParser(description='Arguments required to run mosaic function')
-parser.add_argument('--storage_account_name', type=str, required=True, help='Name of the storage account name where the input data resides')
-parser.add_argument('--storage_account_key', required=True, help='Key to the storage account where the input data resides')
-parser.add_argument('--storage_container', type=str, required=True, help='Container under which the input data resides')
-parser.add_argument('--src_folder_name', default=None, required=True, help='Folder containing the source file for cropping')
+parser = argparse.ArgumentParser(
+    description='Arguments required to run mosaic function')
+parser.add_argument('--storage_account_name', type=str, required=True,
+                    help='Name of the storage account name where the input data resides')
+parser.add_argument('--storage_account_key', required=True,
+                    help='Key to the storage account where the input data resides')
+parser.add_argument('--storage_container', type=str, required=True,
+                    help='Container under which the input data resides')
+parser.add_argument('--src_folder_name', default=None, required=True,
+                    help='Folder containing the source file for cropping')
 
 # parse Args
 args = parser.parse_args()
 
-def mosaic_tifs(input_path: str, 
-    output_path: str, 
-    files: any):
+
+def mosaic_tifs(input_path: str,
+                output_path: str,
+                files: any):
     print("file names are listed below")
     print(files)
     '''
@@ -41,15 +47,17 @@ def mosaic_tifs(input_path: str,
     gdal.UseExceptions()
 
     # two or more files to be mosaic'ed are passed as comma separated values
-    files_to_mosaic = [ f"{input_path}/{file}" for file in files ]
+    files_to_mosaic = [f"{input_path}/{file}" for file in files]
 
     temp_output_path = output_path.replace('/mosaic', '')
 
     # gdal library's wrap method is called to perform the mosaic'ing
-    g = gdal.Warp(f'{temp_output_path}/output.tif', files_to_mosaic, format="GTiff", options=["COMPRESS=LZW", "TILED=YES"])
+    g = gdal.Warp(f'{temp_output_path}/output.tif', files_to_mosaic,
+                  format="GTiff", options=["COMPRESS=LZW", "TILED=YES"])
 
     # close file and flush to disk
     g = None
+
 
 if __name__ == "__main__":
 
@@ -60,12 +68,12 @@ if __name__ == "__main__":
     logger = logging.getLogger("image_mosaic")
 
     # mount storage account container
-    mssparkutils.fs.unmount(f'/{args.storage_container}') 
+    mssparkutils.fs.unmount(f'/{args.storage_container}')
 
-    mssparkutils.fs.mount( 
-        f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net', 
-        f'/{args.storage_container}', 
-        {"accountKey": args.storage_account_key} 
+    mssparkutils.fs.mount(
+        f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net',
+        f'/{args.storage_container}',
+        {"accountKey": args.storage_account_key}
     )
 
     jobId = mssparkutils.env.getJobId()
@@ -77,7 +85,8 @@ if __name__ == "__main__":
     logger.debug(f"output data directory {output_path}")
 
     # list the files in the source folder path under the storage account's container
-    files = mssparkutils.fs.ls(f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net/{args.src_folder_name}')
+    files = mssparkutils.fs.ls(
+        f'abfss://{args.storage_container}@{args.storage_account_name}.dfs.core.windows.net/{args.src_folder_name}')
     input_files = []
     for file in files:
         if not file.isDir and file.name.endswith('.TIF'):
